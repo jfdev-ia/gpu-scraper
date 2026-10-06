@@ -7,7 +7,9 @@ authors = [
     { name = "AI DEV", email = "me@code.com" }
 ]
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "playwright>=1.63.0",
+]
 
 [project.scripts]
 gpu-scraper = "gpu_scraper:main"

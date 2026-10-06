@@ -2,10 +2,11 @@
 
 Search URL page: https://www.digitec.ch/en/search?q=RTX%205090
 
-Total number of results: 930
+Total number of results: 966
 
-Number of `<atricle>` on first load: 55 (search result mentioning: 48 of 930 products).
-7 additional `<atricle>` tags: 4 Recently viewed - 3 magazine posts.
+Number of `<atricle>` on first load: 51 (search result mentioning: 48 of 966 products).
+3 additional `<atricle>` tags: 3 users comments.
+If we scroll to the bottom of the page: 5 Recently viewed articles are displayed
 Real articles are in a section with a span(id="product-list").
 
 Product name not included in the raw page source.
