@@ -25,7 +25,6 @@ Rules:
 load_dotenv()
 
 
-# Milestone 13: one article
 def extract_article(html: str, provider: str = "mistral", model: str = MISTRAL_MODEL) -> Product:
     if provider != "mistral":
         raise ValueError(f"Unknown provider: {provider}")  # Ollama is added in Milestone 32
@@ -46,7 +45,6 @@ def extract_article(html: str, provider: str = "mistral", model: str = MISTRAL_M
     return product
 
 
-# Milestone 14: whole page, one call per article
 def split_articles(html: str) -> list[str]:
     """Return the HTML of every product card (comments and posts are skipped)."""
     soup = BeautifulSoup(html, "lxml")

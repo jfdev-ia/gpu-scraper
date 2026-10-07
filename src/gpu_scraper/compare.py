@@ -1,4 +1,3 @@
-"""Milestone 15: compare the BeautifulSoup result with the LLM result."""
 import json
 from pathlib import Path
 

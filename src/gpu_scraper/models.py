@@ -30,7 +30,6 @@ class Product(BaseModel):
 
 
 if __name__ == "__main__":
-    # Milestone 12: valid data creates an object, invalid data raises an error
     good = Product(name="Test card", price=1999.0, url="/en/product/1",
                    manufacturer="ASUS", category="Graphics card",
                    energy_consumption=None, image=None)
@@ -39,5 +38,5 @@ if __name__ == "__main__":
         Product(name="Test card", price="abc", url="/en/product/1",
                 manufacturer=None, category=None, energy_consumption=None, image=None)
     except ValidationError as error:
-        print("invalid data rejected:", error.errors()[0]["msg"])
-    print(Product.model_json_schema())
+        print(f"invalid data rejected: {error.errors()[0]["loc"]} - {error.errors()[0]["msg"]}")
+        print(Product.model_json_schema())

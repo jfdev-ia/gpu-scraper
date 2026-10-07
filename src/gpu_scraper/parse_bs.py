@@ -29,14 +29,12 @@ def build_product(link, price) -> dict:
     }
 
 
-# Milestone 7: find the elements by class
 def parse_article_by_class(article) -> dict:
     link = article.find("a", class_=NAME_LINK_CLASS)
     price = article.find(class_=PRICE_CLASS)
     return build_product(link, price)
 
 
-# Milestone 8: find the elements by position, no class names
 def find_price_element(article):
     """Start at the text 'CHF' and walk up to the first element that holds a number."""
     currency = article.find(string=re.compile("CHF"))
@@ -56,7 +54,6 @@ def parse_article_by_position(article) -> dict:
     return build_product(link, price)
 
 
-# Milestone 10: all fields, whole page
 def find_manufacturer(article) -> str | None:
     """The name <p> looks like <p><strong>ASUS</strong><span>model</span></p>."""
     for p in article.find_all("p"):
@@ -99,7 +96,6 @@ def parse_page(html: str) -> list[dict]:
     return products
 
 
-# Milestone 11: save as JSON
 def save_json(products: list[dict], path: str) -> None:
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     text = json.dumps(products, ensure_ascii=False, indent=2)
