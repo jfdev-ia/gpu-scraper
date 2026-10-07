@@ -1,5 +1,6 @@
-"""Run the whole pipeline: fetch the search results, extract the RTX 5090 cards, save them."""
+"""Run the whole pipeline: fetch the results, extract the RTX 5090 cards, report by email."""
 import argparse
+import json
 import time
 from datetime import date
 from pathlib import Path
@@ -8,7 +9,9 @@ from bs4 import BeautifulSoup
 
 from gpu_scraper import fetch
 from gpu_scraper.extract_llm import extract_article
+from gpu_scraper.mailer import send_email
 from gpu_scraper.parse_bs import keep_rtx_5090_cards, parse_article, parse_page, save_json
+from gpu_scraper.report import build_report, build_subject
 
 ROOT = Path(__file__).resolve().parents[2]  # the project folder, wherever the program is started
 RAW_DIR = ROOT / "data" / "raw"
@@ -58,12 +61,33 @@ def extract_cards_llm(html: str) -> list[dict]:
     return cards
 
 
-def run(method: str = "bs", use_saved: bool = False, max_products: int | None = None) -> list[dict]:
+def load_previous() -> tuple[list[dict] | None, str]:
+    """The result of the last run before today, to show what changed."""
+    today = f"products_{date.today()}.json"
+    older = [f for f in sorted(OUT_DIR.glob("products_[0-9]*.json")) if f.name < today]
+    if not older:
+        return None, ""
+    products = json.loads(older[-1].read_text(encoding="utf-8"))
+    return products, older[-1].stem.removeprefix("products_")
+
+
+def run(method: str = "bs", use_saved: bool = False, max_products: int | None = None,
+        mail: bool = True) -> list[dict]:
     html = get_html(use_saved, max_products)
     cards = extract_cards_llm(html) if method == "llm" else extract_cards_bs(html)
     path = OUT_DIR / f"products_{date.today()}.json"
     save_json(cards, str(path))  # step 5
     print(f"{len(cards)} RTX 5090 graphics cards saved to {path}")
+
+    previous, previous_date = load_previous()
+    report = build_report(cards, previous, previous_date)  # step 6
+    report_path = OUT_DIR / f"report_{date.today()}.html"
+    report_path.write_text(report, encoding="utf-8")
+    print(f"report saved to {report_path}")
+
+    if mail:  # step 7
+        send_email(build_subject(cards), report)
+        print("report sent by email")
     return cards
 
 
@@ -73,9 +97,11 @@ if __name__ == "__main__":
                         help="extract with BeautifulSoup (default) or with the LLM")
     parser.add_argument("--no-fetch", action="store_true",
                         help="reuse the last saved page instead of loading the site")
+    parser.add_argument("--no-mail", action="store_true", help="build the report, send nothing")
     parser.add_argument("--max", type=int, default=None, help="load at most N products")
     parser.add_argument("--headless", action="store_true", help="hide the browser window")
     args = parser.parse_args()
 
     fetch.HEADLESS = args.headless
-    run(method=args.method, use_saved=args.no_fetch, max_products=args.max)
+    run(method=args.method, use_saved=args.no_fetch, max_products=args.max,
+        mail=not args.no_mail)
