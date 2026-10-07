@@ -1,4 +1,6 @@
+import json
 import re
+from collections import Counter
 from pathlib import Path
 from urllib.parse import urljoin
 
@@ -54,13 +56,66 @@ def parse_article_by_position(article) -> dict:
     return build_product(link, price)
 
 
+# Milestone 10: all fields, whole page
+def find_manufacturer(article) -> str | None:
+    """The name <p> looks like <p><strong>ASUS</strong><span>model</span></p>."""
+    for p in article.find_all("p"):
+        strong = p.find("strong")
+        if strong and p.find("span"):
+            return strong.get_text(strip=True)
+    return None
+
+
+def find_energy(article) -> str | None:
+    """A value in watts, if the card shows one. The search page usually does not."""
+    match = re.search(r"\b\d{2,4}\s?W\b", article.get_text(" "))
+    return match.group() if match else None
+
+
+def parse_article(article) -> dict | None:
+    """Return one product, or None if the <article> is not a product."""
+    link = article.find("a", attrs={"aria-label": True})
+    if link is None or "/product/" not in link.get("href", ""):
+        return None  # user comments and magazine posts have no product link
+    category = article.find("a", href=re.compile("/producttype/"))
+    image = article.find("img")
+    product = build_product(link, find_price_element(article))
+    product["manufacturer"] = find_manufacturer(article)
+    product["category"] = category.get_text(strip=True) if category else None
+    product["energy_consumption"] = find_energy(article)
+    product["image"] = image.get("src") if image else None
+    return product
+
+
+def parse_page(html: str) -> list[dict]:
+    soup = BeautifulSoup(html, "lxml")
+    products, seen = [], set()
+    for article in soup.find_all("article"):
+        product = parse_article(article)
+        if product is None or product["url"] in seen:
+            continue
+        seen.add(product["url"])
+        products.append(product)
+    return products
+
+
+# Milestone 11: save as JSON
+def save_json(products: list[dict], path: str) -> None:
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    text = json.dumps(products, ensure_ascii=False, indent=2)
+    Path(path).write_text(text, encoding="utf-8")
+
+
 if __name__ == "__main__":
-    for name in ["article.html", "article_unavailable.html"]:
-        html = Path("data/samples", name).read_text(encoding="utf-8")
-        article = BeautifulSoup(html, "lxml").find("article")
-        by_class = parse_article_by_class(article)
-        by_position = parse_article_by_position(article)
-        print(name)
-        print("  class:   ", by_class)
-        print("  position:", by_position)
-        print("  identical:", by_class == by_position)
+    html = Path("data/samples/search_page.html").read_text(encoding="utf-8")
+    products = parse_page(html)
+
+    print("articles in page:", html.count("<article"))
+    print("products found:  ", len(products))
+    for field in products[0]:
+        missing = sum(1 for p in products if p[field] is None)
+        print(f"  {field}: {missing} missing")
+    print("categories:", dict(Counter(p["category"] for p in products)))
+
+    save_json(products, "data/out/products_bs.json")
+    print("saved data/out/products_bs.json")
