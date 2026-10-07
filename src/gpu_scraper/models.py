@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field, ValidationError
 
 
@@ -27,16 +29,22 @@ class Product(BaseModel):
     image: str | None = Field(
         description="The src attribute of the product image. null if there is none."
     )
+    availability: Literal["available", "unavailable"] = Field(
+        description="Read the aria-label of the availability icon (an svg). "
+        "'available' if the label starts with 'available', which includes "
+        "'available in a few days' and 'available in a few weeks'. "
+        "'unavailable' if the label is 'Availability unknown' or if there is no such label."
+    )
 
 
 if __name__ == "__main__":
-    good = Product(name="Test card", price=1999.0, url="/en/product/1",
+    example = dict(name="Test card", price=1999.0, url="/en/product/1",
                    manufacturer="ASUS", category="Graphics card",
-                   energy_consumption=None, image=None)
-    print("valid:", good)
-    try:
-        Product(name="Test card", price="abc", url="/en/product/1",
-                manufacturer=None, category=None, energy_consumption=None, image=None)
-    except ValidationError as error:
-        print(f"invalid data rejected: {error.errors()[0]["loc"]} - {error.errors()[0]["msg"]}")
-        print(Product.model_json_schema())
+                   energy_consumption=None, image=None, availability="available")
+    print("valid:", Product(**example))
+    
+    for field, bad_value in [("price", "abc"), ("availability", "in stock")]:
+        try:
+            Product(**{**example, field: bad_value})
+        except ValidationError as error:
+            print(f"{field}={bad_value!r} rejected:", error.errors()[0]["msg"])

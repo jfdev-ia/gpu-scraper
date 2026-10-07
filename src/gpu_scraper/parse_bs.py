@@ -81,6 +81,7 @@ def parse_article(article) -> dict | None:
     product["category"] = category.get_text(strip=True) if category else None
     product["energy_consumption"] = find_energy(article)
     product["image"] = image.get("src") if image else None
+    product["availability"] = parse_availability(article)
     return product
 
 
@@ -95,6 +96,14 @@ def parse_page(html: str) -> list[dict]:
         products.append(product)
     return products
 
+def parse_availability(article) -> str:
+    """'available' if the shop gives a delivery time, 'unavailable' if it does not."""
+    icon = article.find("svg", attrs={"aria-label": True})
+    if icon is None:
+        print("warning: no availability label found, using 'unavailable'")
+        return "unavailable"
+    label = icon["aria-label"].strip().lower()
+    return "available" if label.startswith("available") else "unavailable"
 
 def save_json(products: list[dict], path: str) -> None:
     Path(path).parent.mkdir(parents=True, exist_ok=True)
