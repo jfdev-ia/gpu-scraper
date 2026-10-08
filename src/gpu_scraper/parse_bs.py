@@ -107,9 +107,7 @@ def parse_availability(article) -> str:
 
 # The search also returns notebooks, PCs and accessories, keep only cards
 def keep_graphic_cards(products: list[dict], model: list[str]) -> list[dict]:
-    print(len(products))
     list_p = [p for p in products if p["category"] == "Graphics card" and all(item.lower() in p["name"].lower() for item in model)]
-    print(len(list_p))
     return list_p
 
 def save_json(products: list[dict], path: str) -> None:
