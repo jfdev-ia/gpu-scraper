@@ -2,70 +2,56 @@ import argparse
 from datetime import date
 from pathlib import Path
 
+from urllib.parse import urljoin
+
 from playwright.sync_api import Error as PlaywrightError
-from playwright.sync_api import sync_playwright
+from playwright.async_api import async_playwright
+from playwright_stealth import Stealth
 
-from gpu_scraper.parse_bs import keep_rtx_5090_cards, parse_page, save_json
+import asyncio
 
-SEARCH_URL = "https://www.digitec.ch/en/search?q=rtx+5090"
+from gpu_scraper.parse_bs import keep_graphic_cards, parse_page, save_json
+
+BASE_URL = "https://www.digitec.ch"
+MODEL = ["rtx", "5090"]
 BROWSER = "firefox"
-HEADLESS = False     # False = you see the window
-MAX_CLICKS = 25      # safety limit: 48 + 25 x 60 products
-PAUSE_SECONDS = 5    # wait between clicks, to be gentle with the site
-RETRY_SECONDS = 30   # wait before the one retry if the page does not open
+HEADLESS = False      # False = you see the window
+FIRST_TAKE = 48       # products on the first page
+TAKE_STEP = 60        # the site adds 60 each time: 48 -> 108 -> 168 -> ...
+MAX_PAGES = 25        # safety limit
+PAUSE_SECONDS = 5     # wait between page loads, to be gentle with the site
+RETRY_SECONDS = 30    # wait before the one retry after a failed page load
 
 
-def open_page(page, url: str) -> None:
-    """Open the search page. If the connection fails, wait and try once more."""
-    try:
-        page.goto(url, wait_until="domcontentloaded")
-    except PlaywrightError:
-        print(f"the page did not open, trying again in {RETRY_SECONDS} seconds")
-        page.wait_for_timeout(RETRY_SECONDS * 1000)
-        page.goto(url, wait_until="domcontentloaded")
-    page.wait_for_selector("article", timeout=30_000)
-
-
-def count_articles(page) -> int:
-    return page.locator("article").count()
-
-
-def click_show_more(page) -> bool:
-    """Click the site's "Show more" link once. Return True if more products appeared."""
-    link = page.get_by_text("Show more", exact=True)
-    if link.count() == 0:
-        return False  # the link is gone: everything is loaded
-    before = count_articles(page)
-    link.first.click()
-    for _ in range(30):  # wait up to 30 seconds for the new products
-        page.wait_for_timeout(1000)
-        if count_articles(page) > before:
-            return True
-    return False
-
-
-def fetch_all(url: str = SEARCH_URL, max_products: int | None = None) -> str:
-    """Open the search page and click "Show more" until every product is loaded."""
-    with sync_playwright() as p:
-        browser = getattr(p, BROWSER).launch(headless=HEADLESS)
-        page = browser.new_page()
-        open_page(page, url)
-        for _ in range(MAX_CLICKS):
-            count = count_articles(page)
+async def fetch_all(base_url: str  | None = BASE_URL, model: list | None = None, nb_pages: int | None = 0) -> str:
+    print("Fetch All --------------------------------------------------")
+    model = model or MODEL
+    url = urljoin(base_url, f"en/search?q={'+'.join(model)}")
+    launch_args = ["--start-maximized"]
+    """Load the search page with take = 48, 108, 168 ... until every product is loaded."""
+    async with Stealth().use_async(async_playwright()) as p:
+        browser = await p.chromium.launch(headless=HEADLESS, args=launch_args)
+        page = await browser.new_page(no_viewport=True)
+        
+        take = FIRST_TAKE
+        await page.goto(url, wait_until="domcontentloaded")
+        await page.wait_for_selector("article", timeout=30_000)
+        await page.wait_for_timeout(3000)
+        html = await page.content()
+        for _ in range(nb_pages):
+            count = await page.locator("article").count()
             print(f"{count} articles on the page")
-            if max_products and count >= max_products:
-                break
-            page.wait_for_timeout(PAUSE_SECONDS * 1000)
+            take += TAKE_STEP
+            await page.wait_for_timeout(3000)
             try:
-                if not click_show_more(page):
-                    break
+                await page.goto(f"{url}&take={take}", wait_until="domcontentloaded")
+                await page.wait_for_timeout(3000)
+                html = await page.content()
             except PlaywrightError as error:
-                print(f"stopping here, keeping what is loaded:\n{error}")
+                print(f"take={take} could not be loaded, keeping the previous page:\n{error}")
                 break
-        html = page.content()
-        browser.close()
+        await browser.close()
     return html
-
 
 def save_html(html: str, path: str) -> None:
     Path(path).parent.mkdir(parents=True, exist_ok=True)
@@ -73,18 +59,24 @@ def save_html(html: str, path: str) -> None:
 
 
 if __name__ == "__main__":
+    print("Fetch main method")
     parser = argparse.ArgumentParser()
-    parser.add_argument("--max", type=int, default=None, help="stop after about N products")
+    parser.add_argument("-m", "--model", type=str, nargs='+', default=[],
+                        help="Model of the graphic card: Space-separated list of keywords")
+    parser.add_argument("-p", "--pages", type=int, default=None, help="number of pages to fetch")
+    parser.add_argument("-hl", "--headless", action="store_true", help="hide the browser window")
     args = parser.parse_args()
-
-    html = fetch_all(max_products=args.max)
+    
+    model = args.model or ['rtx', '5090']
+    
+    html = asyncio.run(fetch_all(model=args.model, nb_pages=args.pages))
     raw_path = f"data/raw/search_{date.today()}.html"
     save_html(html, raw_path)
 
     products = parse_page(html)
-    cards = keep_rtx_5090_cards(products)
+    cards = keep_graphic_cards(products, model)
     print(f"products parsed: {len(products)}")
-    print(f"RTX 5090 graphics cards: {len(cards)}")
+    print(f"{' '.join(model)} graphics cards: {len(cards)}")
     save_json(products, "data/out/products_all.json")
-    save_json(cards, "data/out/rtx5090_cards.json")
-    print(f"saved {raw_path}, data/out/products_all.json, data/out/rtx5090_cards.json")
+    save_json(cards, f"data/out/{''.join(model)}_cards.json")
+    print(f"saved {raw_path}, data/out/products_all.json, data/out/{''.join(model)}_cards.json")

@@ -106,8 +106,9 @@ def parse_availability(article) -> str:
     return "available" if label.startswith("available") else "unavailable"
 
 # The search also returns notebooks, PCs and accessories, keep only cards
-def keep_rtx_5090_cards(products: list[dict]) -> list[dict]:
-    return [p for p in products if p["category"] == "Graphics card" and "5090" in p["name"]]
+def keep_graphic_cards(products: list[dict], model: list[str]) -> list[dict]:
+    list_p = [p for p in products if p["category"] == "Graphics card" and all(item.lower() in products[0]["name"].lower() for item in model)]
+    return list_p
 
 def save_json(products: list[dict], path: str) -> None:
     Path(path).parent.mkdir(parents=True, exist_ok=True)
