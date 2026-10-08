@@ -63,7 +63,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-m", "--model", type=str, nargs='+', default=[],
                         help="Model of the graphic card: Space-separated list of keywords")
-    parser.add_argument("-p", "--pages", type=int, default=None, help="number of pages to fetch")
+    parser.add_argument("-p", "--pages", type=int, default=0, help="number of pages to fetch")
     parser.add_argument("-hl", "--headless", action="store_true", help="hide the browser window")
     args = parser.parse_args()
     

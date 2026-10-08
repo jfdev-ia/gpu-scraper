@@ -37,12 +37,10 @@ def get_html(use_saved: bool, model: list | None, nb_pages: int | None) -> str:
 
 
 def extract_cards_bs(html: str, model: list) -> list[dict]:
-    """Steps 2 to 4 with BeautifulSoup only."""
     return keep_graphic_cards(parse_page(html), model)
 
 
 def extract_cards_llm(html: str, model: list) -> list[dict]:
-    """Steps 2 to 4 with the LLM: BeautifulSoup picks the cards, the LLM reads them."""
     selected, seen = [], set()
     for article in BeautifulSoup(html, "lxml").find_all("article"):
         product = parse_article(article)
@@ -105,7 +103,7 @@ if __name__ == "__main__":
                         help="reuse the last saved page instead of loading the site")
     parser.add_argument("--no-mail", action="store_true", help="build the report, send nothing")
     parser.add_argument("-hl", "--headless", action="store_true", help="hide the browser window")
-    parser.add_argument("-p", "--pages", type=int, default=None, help="number of pages to fetch")
+    parser.add_argument("-p", "--pages", type=int, default=0, help="number of pages to fetch")
     args = parser.parse_args()
 
     fetch.HEADLESS = args.headless
