@@ -67,11 +67,13 @@ async def get_price_trend(product):
 
 
 TREND_PROMPT = """You read two screenshots of a product page of an online shop.
-
 Each screenshot contains a graph of the price of one product over time.
-
 The first screenshot shows the last 3 months, the second one the full price history.
+Use only what is visible in the graphs. If a price cannot be read, return null."""
 
+TREND_PROMPT2 = """You read a screenshot of a product page of an online shop.
+The screenshot contains a graph of the price of one product over time.
+The screenshot shows the full price history.
 Use only what is visible in the graphs. If a price cannot be read, return null."""
 
 PAUSE_SECONDS = 5  # wait between two products, to be gentle with the site
@@ -79,24 +81,25 @@ PAUSE_SECONDS = 5  # wait between two products, to be gentle with the site
 
 def classify_trend(images: list[str]) -> PriceTrend:
     """Send both screenshots (3 months, full history) to the LLM in one call."""
-
     response = client.chat.parse(
         model="mistral-small-2506",
         messages=[
-            {"role": "system", "content": TREND_PROMPT},
+            {"role": "system", "content": TREND_PROMPT2},
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": "Last 3 months:"},
-                    {"type": "image_url", "image_url": encode_image(images[0])},
                     {"type": "text", "text": "Full price history:"},
                     {"type": "image_url", "image_url": encode_image(images[1])},
                 ],
             },
         ],
         response_format=PriceTrend,
-        temperature=0,
+        reasoning_effort='high',
+        temperature=0.7,
     )
+    print("-----------------------------------------------------")
+    print(response.choices[0].message.model_dump_json())
+    print("-----------------------------------------------------")
     return response.choices[0].message.parsed
 
 
