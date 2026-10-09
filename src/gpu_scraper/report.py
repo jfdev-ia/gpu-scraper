@@ -69,7 +69,12 @@ def build_report(products: list[dict], previous: list[dict] | None = None,
                      f"median {money(statistics.median(prices))}, highest {money(max(prices))}.</p>")
     else:
         parts.append("<p><b>No card is available with a price today.</b></p>")
-
+    to_buy = [p for p in products if p.get("signal") == "buy"]
+    
+    if to_buy:
+        names = ", ".join(f"{link(p)} ({money(p['price'])})" for p in sort_by_price(to_buy))
+        parts.append(f'<p style="color:#1a7f37"><b>Good moment to buy:</b> {names}</p>')
+    
     if previous is not None:
         parts.append(changes_section(products, previous, previous_date))
 
@@ -82,12 +87,15 @@ def build_report(products: list[dict], previous: list[dict] | None = None,
             f"<tr{grey}><td {cell}>{link(product)}</td>"
             f"<td {cell}>{html.escape(product['manufacturer'] or '')}</td>"
             f'<td {right}>{money(product["price"])}</td>'
-            f"<td {cell}>{html.escape(product['availability'])}</td></tr>"
+            f"<td {cell}>{html.escape(product['availability'])}</td>"
+            f"<td {cell}>{html.escape(product.get('trend') or '')}</td>"
+            f"<td {cell}>{html.escape(product.get('signal') or '')}</td></tr>"
         )
     parts.append("<h3>All cards by price</h3>")
     parts.append('<table style="border-collapse:collapse;width:100%">'
                  f"<tr><th {cell}>Card</th><th {cell}>Manufacturer</th>"
-                 f'<th {right}>Price</th><th {cell}>Availability</th></tr>'
+                 f'<th {right}>Price</th><th {cell}>Availability</th>'
+                 f"<th {cell}>Trend</th><th {cell}>Signal</th></tr>"
                  + "".join(rows) + "</table></div>")
     return "\n".join(parts)
 

@@ -14,6 +14,7 @@ from gpu_scraper.extract_llm import extract_article
 from gpu_scraper.mailer import send_email
 from gpu_scraper.parse_bs import keep_graphic_cards, parse_article, parse_page, save_json
 from gpu_scraper.report import build_report, build_subject
+from gpu_scraper.price_trend import add_trends
 
 ROOT = Path(__file__).resolve().parents[2]  # the project folder, wherever the program is started
 RAW_DIR = ROOT / "data" / "raw"
@@ -71,12 +72,13 @@ def load_previous() -> tuple[list[dict] | None, str]:
     products = json.loads(older[-1].read_text(encoding="utf-8"))
     return products, older[-1].stem.removeprefix("products_")
 
-
 def run(method: str = "bs", use_saved: bool = False, model:list[str] | None = None, nb_pages: int | None = 0,
-        mail: bool = True) -> list[dict]:
+        mail: bool = True, trends: int = 0) -> list[dict]:
     model = model or MODEL
     html = get_html(use_saved, model, nb_pages)
     cards = extract_cards_llm(html, model) if method == "llm" else extract_cards_bs(html, model)
+    if trends:  # price graph of the cheapest available cards
+        add_trends(cards, limit=trends)
     path = OUT_DIR / f"products_{date.today()}.json"
     save_json(cards, str(path))  # step 5
     print(f"{len(cards)} {' '.join(model)} graphics cards saved to {path}")
@@ -104,7 +106,10 @@ if __name__ == "__main__":
     parser.add_argument("--no-mail", action="store_true", help="build the report, send nothing")
     parser.add_argument("-hl", "--headless", action="store_true", help="hide the browser window")
     parser.add_argument("-p", "--pages", type=int, default=0, help="number of pages to fetch")
+    parser.add_argument("-t", "--trends", type=int, default=0,
+                        help="read the price graph of the N cheapest available cards")
     args = parser.parse_args()
 
     fetch.HEADLESS = args.headless
-    run(method=args.method, use_saved=args.no_fetch, model=args.model, nb_pages=args.pages, mail=not args.no_mail)
+    run(method=args.method, use_saved=args.no_fetch, model=args.model, 
+        nb_pages=args.pages, mail=not args.no_mail, trends=args.trends)

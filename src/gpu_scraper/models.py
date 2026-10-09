@@ -37,12 +37,40 @@ class Product(BaseModel):
     )
 
 
+Trend = Literal["DECREASING", "INCREASING", "FLAT"]
+
+
+class PriceTrend(BaseModel):
+    trend: Trend = Field(
+        description="Direction of the price over the last 30 days of the 3-month graph. "
+        "FLAT if the price moved by less than 2%."
+    )
+    history: list[Trend] = Field(
+        description="Direction of the price for each part of the full-history graph, "
+        "oldest first, 3 to 6 values."
+    )
+    lowest_price: float | None = Field(
+        description="Lowest price in CHF shown in the full-history graph. null if not readable."
+    )
+    highest_price: float | None = Field(
+        description="Highest price in CHF shown in the full-history graph. null if not readable."
+    )
+    reason: str = Field(description="One short sentence explaining the trend.")
+
+
 if __name__ == "__main__":
-    example = dict(name="Test card", price=1999.0, url="/en/product/1",
-                   manufacturer="ASUS", category="Graphics card",
-                   energy_consumption=None, image=None, availability="available")
+    example = dict(
+        name="Test card",
+        price=1999.0,
+        url="/en/product/1",
+        manufacturer="ASUS",
+        category="Graphics card",
+        energy_consumption=None,
+        image=None,
+        availability="available",
+    )
     print("valid:", Product(**example))
-    
+
     for field, bad_value in [("price", "abc"), ("availability", "in stock")]:
         try:
             Product(**{**example, field: bad_value})
